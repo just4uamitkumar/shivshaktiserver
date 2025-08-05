@@ -126,11 +126,9 @@ export const addAddress = catchAsyncError(async (req, res, next) => {
     if (!user){
        return next(new ErrorHandler("User not found", 404));
     }
-
     // if (!addressLine1 || !zipCode ){
     //     return next(new ErrorHandler("Please enter all required field", 400));
     // }
-
 
     user.address = {
       addressLine1, addressLine2,

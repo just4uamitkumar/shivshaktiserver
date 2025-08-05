@@ -4,36 +4,6 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
-const AddressSchema = new mongoose.Schema({
-    addressLine1: String,
-    addressLine2: String,
-    // city: {
-    //   id: Number,
-    //   name: String,
-    //   latitude: String,
-    //   longitude: String,
-    // },
-    // state: {
-    //   id: Number,
-    //   name: String,
-    //   iso2: String,
-    // },
-    // zipCode: Number,
-    country: {
-        id: Number,
-        name: String,
-        iso2: String,
-        iso3: String,
-        // phonecode: Number,
-        // capital: String,
-        // currency: String,
-        // native: String,
-        // emoji: String,
-    },
-}, {
-    _id: false
-}); // Optional: disables _id for address
-
 const schema = new mongoose.Schema({
   firstName: {
       type: String,
