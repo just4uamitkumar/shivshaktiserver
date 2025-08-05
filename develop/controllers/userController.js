@@ -107,3 +107,46 @@ export const addMobileNumber = catchAsyncError(async (req, res, next) => {
         message: "Mobile added Successfully",
     });
 });
+
+// add / update Adress
+export const addAddress = catchAsyncError(async (req, res, next) => {
+    const { id } = req.params;
+
+    const { addressLine1, addressLine2, zipCode } = req.body;
+
+    const country = req.body.country || {};
+    const state = req.body.state || {};
+    const city = req.body.city || {};
+
+    const { id: countryId,  name:countryName,  iso2:countryIso2,  iso3, phonecode,capital, currency, native, emoji } = country
+    const { id: stateId,  name:stateName,  iso2:stateIso2, } = state
+    const { id: cityId,  name:cityName,  latitude,  longitude} = city
+
+    const user = await User.findById(id);
+    if (!user){
+       return next(new ErrorHandler("User not found", 404));
+    }
+    // if (!addressLine1 || !zipCode ){
+    //     return next(new ErrorHandler("Please enter all required field", 400));
+    // }
+
+    user.address = {
+      addressLine1, addressLine2,
+      country:{
+        id: countryId, name:countryName, iso2:countryIso2,  iso3, phonecode,capital, currency, native, emoji
+      },
+      state:{
+        id: stateId, name:stateName, iso2:stateIso2
+      },
+      city:{
+        id: cityId, name:cityName, latitude, longitude
+      },
+      zipCode
+    }
+
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: "Address added Successfully",
+    });
+});

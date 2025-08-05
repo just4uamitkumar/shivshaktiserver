@@ -1,6 +1,6 @@
 import express from "express";
 import {
-     login, logout, register, getMyProfile, getAllUsers, addMobileNumber
+     login, logout, register, getMyProfile, getAllUsers, addAddress, addMobileNumber
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 //import singleUpload from '../middlewares/multer.js'
@@ -22,6 +22,11 @@ router.route("/me").get(isAuthenticated, getMyProfile);
 // Get my profile
 router.route("/allUsers").get(getAllUsers);
 
-router.route("/:id").patch(addMobileNumber);
+
+//Add / update Mobile number
+router.route("/:id/mobile").patch(addMobileNumber);
+
+//Add / update Address for the user
+router.route("/:id/address").patch(addAddress);
 
 export default router;
