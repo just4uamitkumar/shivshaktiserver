@@ -1,44 +1,102 @@
+//userController.js
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import { User } from "../models/user.model.js";
 import { sendToken } from "../utils/sendToken.js";
-//import { sendEmail } from "../utils/sendEmail.js";
 import crypto from "crypto";
-//import { Course } from "../models/Course.js";
-// import cloudinary from "cloudinary";
-// import getDataUri from "../utils/dataUri.js";
-// import { Stats } from "../models/Stats.js";
+import { sendVerificationEmail, sendConfirmationEmail } from "../utils/sendEmail.js";
 
 export const register = catchAsyncError(async (req, res, next) => {
 
     const { firstName, lastName, email, password } = req.body;
-    // const file = req.file;
 
-    if (!firstName || !email || !password
-       // || !file
-     )
+    if (!firstName || !lastName ||!email || !password  )
         return next(new ErrorHandler("Please enter all field", 400));
 
     let user = await User.findOne({ email });
 
     if (user) return next(new ErrorHandler("User Already Exist", 409));
 
-    // const fileUri = getDataUri(file);
-    // const mycloud = await cloudinary.v2.uploader.upload(fileUri.content);
-
     user = await User.create({
         firstName,
         lastName,
         email,
         password,
-        // avatar: {
-        //     public_id: mycloud.public_id,
-        //     url: mycloud.secure_url,
-        // },
     });
 
     sendToken(res, user, "Registered Successfully", 201);
+
+    const verificationToken = crypto.randomBytes(20).toString("hex");
+    user.emailVerificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+    user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+    await user.save();
+
+    const verificationUrl = `${process.env.FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+    await sendVerificationEmail(user.email, verificationUrl);
+
 });
+
+//Verify Email
+export const verifyEmail = catchAsyncError(async (req, res, next) => {
+  const { token } = req.params;
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpire: { $gt: Date.now() },
+  });
+
+  if (!user) return next(new ErrorHandler("Invalid or expired token", 400));
+
+  if (user.isVerified) {
+    return next(new ErrorHandler("Email already verified", 400));
+  }
+
+  user.isVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpire = undefined;
+
+  await user.save();
+
+  // ✅ Send confirmation email
+  await sendConfirmationEmail(user.email, user.firstName, user.lastName);
+
+  res.status(200).json({
+    success: true,
+    message: "Email verified successfully",
+  });
+});
+
+
+
+//Resend Verifiction Email
+export const resendVerificationEmail = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) return next(new ErrorHandler("Email is required", 400));
+
+  const user = await User.findOne({ email });
+
+  if (!user) return next(new ErrorHandler("User not found", 404));
+  if (user.isVerified) return next(new ErrorHandler("Email already verified", 400));
+
+  const verificationToken = crypto.randomBytes(20).toString("hex");
+  user.emailVerificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+  user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
+
+  await user.save();
+
+  const verificationUrl = `${process.env.FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+  await sendVerificationEmail(user.email, verificationUrl);
+
+  res.status(200).json({
+    success: true,
+    message: "Verification email resent successfully",
+  });
+});
+
 
 export const login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
@@ -54,6 +112,10 @@ export const login = catchAsyncError(async (req, res, next) => {
 
   if (!isMatch)
     return next(new ErrorHandler("Incorrect Email or Password", 401));
+
+  if (!user.isVerified) {
+    return next(new ErrorHandler("Please verify your email before logging in", 403));
+  }
 
   sendToken(res, user, `Welcome back, ${user.firstName} ${user.lastName}`, 200);
 });
