@@ -1,6 +1,7 @@
+//user.route.js
 import express from "express";
 import {
-     login, logout, register, getMyProfile, getAllUsers, addAddress, addMobileNumber
+     login, logout, register, getMyProfile, getAllUsers, addAddress, addMobileNumber, verifyEmail, resendVerificationEmail
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 //import singleUpload from '../middlewares/multer.js'
@@ -9,6 +10,12 @@ const router = express.Router();
 
 // To register a new user
 router.route("/register").post(register);
+
+//Send Verificatio Email
+router.get("/verify-email/:token", verifyEmail);
+
+//ReSend Verificatio Email
+router.post("/resend-verification", resendVerificationEmail);
 
 // Login
 router.route("/login").post(login);

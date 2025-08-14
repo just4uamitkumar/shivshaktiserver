@@ -1,3 +1,4 @@
+//Server.js
 import express from "express";
 import dotenv from "dotenv";
 import path from "path";
@@ -33,8 +34,12 @@ if (process.env.NODE_ENV === "production") {
 		res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
 	});
 }
-
-
+else{
+	app.use(cors({
+	  origin: process.env.FRONTEND_URL,
+	  credentials: true,
+	}));
+}
 
 app.listen(PORT, () => {
 	connectDB();
