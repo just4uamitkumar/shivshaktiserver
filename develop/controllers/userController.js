@@ -6,6 +6,8 @@ import { sendToken } from "../utils/sendToken.js";
 import crypto from "crypto";
 import { sendVerificationEmail, sendConfirmationEmail } from "../utils/sendEmail.js";
 
+const FRONTEND_URL = process.env.NODE_ENV === "prod" ? process.env.PROD_FRONTEND_URL : process.env.DEV_FRONTEND_URL
+
 export const register = catchAsyncError(async (req, res, next) => {
 
     const { firstName, lastName, email, password } = req.body;
@@ -32,7 +34,7 @@ export const register = catchAsyncError(async (req, res, next) => {
 
     await user.save();
 
-    const verificationUrl = `${process.env.FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+    const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
     await sendVerificationEmail(user.email, verificationUrl);
 
 });
@@ -88,7 +90,7 @@ export const resendVerificationEmail = catchAsyncError(async (req, res, next) =>
 
   await user.save();
 
-  const verificationUrl = `${process.env.FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+  const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
   await sendVerificationEmail(user.email, verificationUrl);
 
   res.status(200).json({
