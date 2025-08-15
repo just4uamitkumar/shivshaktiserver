@@ -28,7 +28,7 @@ app.use("/api/jyotirlings", jyotirlingRoutes);
 app.use("/api/devotee", devoteeRoutes);
 app.use("/api/user", userRoutes);
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "prod") {
 	app.use(express.static(path.join(__dirname, "/frontend/dist")));
 	app.get("*", (req, res) => {
 		res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
@@ -36,7 +36,7 @@ if (process.env.NODE_ENV === "production") {
 }
 else{
 	app.use(cors({
-	  origin: process.env.FRONTEND_URL,
+	  origin: process.env.DEV_FRONTEND_URL,
 	  credentials: true,
 	}));
 }
