@@ -4,9 +4,12 @@ import ErrorHandler from "../utils/errorHandler.js";
 import { User } from "../models/user.model.js";
 import { sendToken } from "../utils/sendToken.js";
 import crypto from "crypto";
-import { sendVerificationEmail, sendConfirmationEmail } from "../utils/sendEmail.js";
+import { sendVerificationEmail, sendConfirmationEmail, sendForgotPasswordEmail, sendPasswordResetSuccessEmail  } from "../utils/sendEmail.js";
+import dotenv from "dotenv";
 
-const FRONTEND_URL = process.env.NODE_ENV === "prod" ? process.env.PROD_FRONTEND_URL : process.env.DEV_FRONTEND_URL
+dotenv.config();
+
+const FRONTEND_URL = process.env.NODE_ENV === "prod" ? process.env.PROD_FRONTENDURL : process.env.DEV_FRONTENDURL
 
 export const register = catchAsyncError(async (req, res, next) => {
 
@@ -35,7 +38,7 @@ export const register = catchAsyncError(async (req, res, next) => {
     await user.save();
 
     const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
-    await sendVerificationEmail(user.email, verificationUrl);
+    await sendVerificationEmail(user.email, verificationUrl, firstName, lastName);
 
 });
 
@@ -63,14 +66,13 @@ export const verifyEmail = catchAsyncError(async (req, res, next) => {
   await user.save();
 
   // ✅ Send confirmation email
-  await sendConfirmationEmail(user.email, user.firstName, user.lastName);
+  await sendConfirmationEmail(user.email, FRONTEND_URL, user.firstName, user.lastName);
 
   res.status(200).json({
     success: true,
     message: "Email verified successfully",
   });
 });
-
 
 
 //Resend Verifiction Email
@@ -91,7 +93,7 @@ export const resendVerificationEmail = catchAsyncError(async (req, res, next) =>
   await user.save();
 
   const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
-  await sendVerificationEmail(user.email, verificationUrl);
+  await sendVerificationEmail(user.email, verificationUrl, user.firstName, user.lastName);
 
   res.status(200).json({
     success: true,
@@ -146,6 +148,28 @@ export const getMyProfile = catchAsyncError(async (req, res, next) => {
   });
 });
 
+//Change Password
+export const changePassword = catchAsyncError(async (req, res, next) => {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword)
+        return next(new ErrorHandler("Please enter all field", 400));
+
+    const user = await User.findById(req.user._id).select("+password");
+
+    const isMatch = await user.comparePassword(oldPassword);
+
+    if (!isMatch) return next(new ErrorHandler("Incorrect Old Password", 400));
+
+    user.password = newPassword;
+
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: "Password Changed Successfully",
+    });
+});
+
 
 // API route to get all registered users
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
@@ -154,6 +178,56 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
     success: true,
     users,
   });
+});
+
+//Forgot Password
+export const forgetPassword = catchAsyncError(async (req, res, next) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return next(new ErrorHandler("User not found", 400));
+
+    const resetToken = await user.getResetToken();
+    await user.save();
+    const url = `${FRONTEND_URL}/ResetPassword/${resetToken}`;
+
+    await sendForgotPasswordEmail(user.email, url, user.firstName, user.lastName);
+    res.status(200).json({
+        success: true,
+        message: `Reset Token has been sent to ${user.email}`,
+    });
+});
+
+//Reset password
+export const resetPassword = catchAsyncError(async (req, res, next) => {
+    const { token } = req.params;
+
+    const resetPasswordToken = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+
+    const user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: {
+            $gt: Date.now(),
+        },
+    });
+
+    if (!user)
+        return next(new ErrorHandler("Token is invalid or has been expired", 401));
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    await sendPasswordResetSuccessEmail(user.email, user.firstName, user.lastName);
+
+    res.status(200).json({
+        success: true,
+        message: "Password Changed Successfully",
+    });
 });
 
 
