@@ -3,16 +3,15 @@
   "version": "1.0.0",
   "description": "All about mahadev",
   "type": "module",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "dev": "nodemon develop/server.js"
+    "dev": "nodemon server.js"
   },
   "author": "amit",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
-    "cookies-parser": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
