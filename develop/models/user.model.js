@@ -41,6 +41,11 @@ const schema = new mongoose.Schema({
       default: null,
   },
 
+  birthDate: {
+    type: Date,
+    required: false, // Set to true if you want to make it mandatory
+  },
+
   address: {
       addressLine1: {
           type: String
@@ -178,5 +183,6 @@ schema.methods.getResetToken = function() {
 
     return resetToken;
 };
+
 
 export const User = mongoose.model("User", schema);
