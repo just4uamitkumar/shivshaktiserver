@@ -24,6 +24,7 @@ app.use(express.json()); // allows us to accept JSON data in the req.body
 app.use(cors());
 app.use(cookieParser());
 
+
 app.use("/api/products", productRoutes);
 app.use("/api/jyotirlings", jyotirlingRoutes);
 app.use("/api/devotee", devoteeRoutes);

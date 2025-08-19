@@ -2,7 +2,7 @@
 import express from "express";
 import {
      login, logout, register, getMyProfile, getAllUsers, addAddress, addMobileNumber, verifyEmail, resendVerificationEmail,
-     forgetPassword, resetPassword
+     forgetPassword, resetPassword, changePassword
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 //import singleUpload from '../middlewares/multer.js'
@@ -17,6 +17,9 @@ router.get("/verify-email/:token", verifyEmail);
 
 //ReSend Verificatio Email
 router.post("/resend-verification", resendVerificationEmail);
+
+//Change Password
+router.route("/changePassword").put(isAuthenticated, changePassword);
 
 // ForgetPassword
 router.route("/forgetpassword").post(forgetPassword);

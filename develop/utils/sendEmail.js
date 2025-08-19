@@ -99,6 +99,49 @@ export const sendConfirmationEmail = async (email, url, firstName, lastName) => 
   }
 };
 
+
+//Send confirm reset Password message
+export const sendPasswordChangeEmail = async (email, firstName, lastName) => {
+  const transporter = nodemailer.createTransport({
+    service: "Gmail",
+    auth: {
+      user: process.env.SMTP_EMAIL,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  });
+
+  const message = {
+    from: process.env.SMTP_EMAIL,
+    to: email,
+    subject: "ShivShakti! Your password has been changed",
+    html: `
+      <div style="font-family: 'Segoe UI', sans-serif; background-color: #f9f9f9; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="background-color: #eb8500; color: white; padding: 5px; text-align: center;">
+            <h2>Password Changed Successfully</h2>
+          </div>
+          <div style="padding: 20px;">
+            <p style="font-size: 16px; margin-top:0;">Hi ${firstName + ' ' + lastName},</p>
+            <p style="font-size: 16px; padding: 10px 0;">Your password has been updated successfully. If this wasn't you, please contact support immediately.</p>
+            <p style="margin: 25px 0 5px; font-size: 14px; color: #555;">Stay safe and secure,<br/>Team ShivShakti</p>
+          </div>
+          <div style="background-color: #d1d1d1; text-align: center; padding: 15px; font-size: 12px; color: #2f2f2f;">
+            &copy; ${new Date().getFullYear()} ShivShakti. All rights reserved.
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(message);
+    console.log("Password change email sent");
+  } catch (err) {
+    console.error("Error sending confirmation email:", err);
+  }
+};
+
+
 //Send forgot Password message to reset
 export const sendForgotPasswordEmail = async (email, url, firstName, lastName) => {
   const transporter = nodemailer.createTransport({

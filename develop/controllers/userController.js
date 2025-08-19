@@ -4,7 +4,7 @@ import ErrorHandler from "../utils/errorHandler.js";
 import { User } from "../models/user.model.js";
 import { sendToken } from "../utils/sendToken.js";
 import crypto from "crypto";
-import { sendVerificationEmail, sendConfirmationEmail, sendForgotPasswordEmail, sendPasswordResetSuccessEmail  } from "../utils/sendEmail.js";
+import { sendVerificationEmail, sendConfirmationEmail, sendForgotPasswordEmail, sendPasswordResetSuccessEmail, sendPasswordChangeEmail  } from "../utils/sendEmail.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -163,6 +163,8 @@ export const changePassword = catchAsyncError(async (req, res, next) => {
     user.password = newPassword;
 
     await user.save();
+
+    await sendPasswordChangeEmail(user.email, user.firstName, user.lastName);
 
     res.status(200).json({
         success: true,
