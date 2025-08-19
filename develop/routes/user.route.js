@@ -2,7 +2,7 @@
 import express from "express";
 import {
      login, logout, register, getMyProfile, getAllUsers, addAddress, addMobileNumber, verifyEmail, resendVerificationEmail,
-     forgetPassword, resetPassword, changePassword
+     forgetPassword, resetPassword, changePassword, addBirthDate
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middleware/auth.js";
 //import singleUpload from '../middlewares/multer.js'
@@ -42,6 +42,9 @@ router.route("/allUsers").get(getAllUsers);
 
 //Add / update Mobile number
 router.route("/:id/mobile").patch(isAuthenticated, addMobileNumber);
+
+//Add / update Birthdate number
+router.route("/:id/birthDate").patch(isAuthenticated, addBirthDate);
 
 //Add / update Address for the user
 router.route("/:id/address").patch(addAddress);

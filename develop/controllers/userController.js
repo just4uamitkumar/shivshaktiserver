@@ -232,19 +232,55 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
     });
 });
 
-
-// update Mobile Number
+//Update Mobile Number
 export const addMobileNumber = catchAsyncError(async (req, res, next) => {
   // const user = await User.findById(req?.user?._id);
     const { id } = req.params;
     const { mobile } = req.body;
     const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
     if (mobile) user.mobile = mobile;
 
     await user.save();
     res.status(200).json({
         success: true,
         message: "Mobile added Successfully",
+    });
+});
+
+// Add/Update Date of birth
+export const addBirthDate = catchAsyncError(async (req, res, next) => {
+    const { id } = req.params;
+    const { birthDate } = req.body;
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (birthDate) {
+      const parsedDate = new Date(birthDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid birthdate format",
+        });
+      }
+      user.birthDate = parsedDate;
+    }
+
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: "Birthdate added/ updated Successfully",
     });
 });
 
