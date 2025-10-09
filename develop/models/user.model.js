@@ -124,7 +124,7 @@ const schema = new mongoose.Schema({
   },
 
   profilePic: {
-      type: String,
+    type: String,
   },
 
   avatar: {

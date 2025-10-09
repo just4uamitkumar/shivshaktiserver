@@ -20,10 +20,11 @@ const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
 
-app.use(express.json()); // allows us to accept JSON data in the req.body
+app.use(express.json({limit: "16kb"})); // allows us to accept JSON data in the req.body
+app.use(express.urlencoded({extended:true, limit: "16kb"}));
 app.use(cors());
-app.use(cookieParser());
 
+app.use(cookieParser());
 
 app.use("/api/products", productRoutes);
 app.use("/api/jyotirlings", jyotirlingRoutes);
@@ -38,7 +39,7 @@ if (process.env.NODE_ENV === "production") {
 }
 else{
 	app.use(cors({
-	  origin: process.env.DEV_FRONTEND_URL,
+	  origin: process.env.DEV_FRONTEND_URL || process.env.PROD_FRONTENDURL,
 	  credentials: true,
 	}));
 }

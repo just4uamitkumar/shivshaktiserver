@@ -6,6 +6,7 @@ import { sendToken } from "../utils/sendToken.js";
 import crypto from "crypto";
 import { sendVerificationEmail, sendConfirmationEmail, sendForgotPasswordEmail, sendPasswordResetSuccessEmail, sendPasswordChangeEmail  } from "../utils/sendEmail.js";
 import dotenv from "dotenv";
+import cloudinary from "cloudinary";
 
 dotenv.config();
 
@@ -324,5 +325,31 @@ export const addAddress = catchAsyncError(async (req, res, next) => {
     res.status(200).json({
         success: true,
         message: "Address added Successfully",
+    });
+});
+
+
+//Add / update profile pic
+export const updateprofilepicture = catchAsyncError(async (req, res, next) => {
+    const file = req.file;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user){
+       return next(new ErrorHandler("User not found", 404));
+    }
+
+    const fileUri = getDataUri(file);
+    const mycloud = await cloudinary.v2.uploader.upload(fileUri.content);
+
+    await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+    user.profilePic = mycloud.secure_url;
+
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: "Profile Picture Updated Successfully",
     });
 });
