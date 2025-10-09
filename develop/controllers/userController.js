@@ -1,44 +1,107 @@
+//userController.js
 import { catchAsyncError } from "../middleware/catchAsyncError.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import { User } from "../models/user.model.js";
 import { sendToken } from "../utils/sendToken.js";
-//import { sendEmail } from "../utils/sendEmail.js";
 import crypto from "crypto";
-//import { Course } from "../models/Course.js";
-// import cloudinary from "cloudinary";
-// import getDataUri from "../utils/dataUri.js";
-// import { Stats } from "../models/Stats.js";
+import { sendVerificationEmail, sendConfirmationEmail, sendForgotPasswordEmail, sendPasswordResetSuccessEmail, sendPasswordChangeEmail  } from "../utils/sendEmail.js";
+import dotenv from "dotenv";
+import cloudinary from "cloudinary";
+
+dotenv.config();
+
+const FRONTEND_URL = process.env.NODE_ENV === "prod" ? process.env.PROD_FRONTENDURL : process.env.DEV_FRONTENDURL
 
 export const register = catchAsyncError(async (req, res, next) => {
 
     const { firstName, lastName, email, password } = req.body;
-    // const file = req.file;
 
-    if (!firstName || !email || !password
-       // || !file
-     )
+    if (!firstName || !lastName ||!email || !password  )
         return next(new ErrorHandler("Please enter all field", 400));
 
     let user = await User.findOne({ email });
 
     if (user) return next(new ErrorHandler("User Already Exist", 409));
 
-    // const fileUri = getDataUri(file);
-    // const mycloud = await cloudinary.v2.uploader.upload(fileUri.content);
-
     user = await User.create({
         firstName,
         lastName,
         email,
         password,
-        // avatar: {
-        //     public_id: mycloud.public_id,
-        //     url: mycloud.secure_url,
-        // },
     });
 
     sendToken(res, user, "Registered Successfully", 201);
+
+    const verificationToken = crypto.randomBytes(20).toString("hex");
+    user.emailVerificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+    user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+    await user.save();
+
+    const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+    await sendVerificationEmail(user.email, verificationUrl, firstName, lastName);
+
 });
+
+//Verify Email
+export const verifyEmail = catchAsyncError(async (req, res, next) => {
+  const { token } = req.params;
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpire: { $gt: Date.now() },
+  });
+
+  if (!user) return next(new ErrorHandler("Invalid or expired token", 400));
+
+  if (user.isVerified) {
+    return next(new ErrorHandler("Email already verified", 400));
+  }
+
+  user.isVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpire = undefined;
+
+  await user.save();
+
+  // ✅ Send confirmation email
+  await sendConfirmationEmail(user.email, FRONTEND_URL, user.firstName, user.lastName);
+
+  res.status(200).json({
+    success: true,
+    message: "Email verified successfully",
+  });
+});
+
+
+//Resend Verifiction Email
+export const resendVerificationEmail = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) return next(new ErrorHandler("Email is required", 400));
+
+  const user = await User.findOne({ email });
+
+  if (!user) return next(new ErrorHandler("User not found", 404));
+  if (user.isVerified) return next(new ErrorHandler("Email already verified", 400));
+
+  const verificationToken = crypto.randomBytes(20).toString("hex");
+  user.emailVerificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+  user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
+
+  await user.save();
+
+  const verificationUrl = `${FRONTEND_URL}/VerifyEmail/${verificationToken}`;
+  await sendVerificationEmail(user.email, verificationUrl, user.firstName, user.lastName);
+
+  res.status(200).json({
+    success: true,
+    message: "Verification email resent successfully",
+  });
+});
+
 
 export const login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
@@ -54,6 +117,10 @@ export const login = catchAsyncError(async (req, res, next) => {
 
   if (!isMatch)
     return next(new ErrorHandler("Incorrect Email or Password", 401));
+
+  if (!user.isVerified) {
+    return next(new ErrorHandler("Please verify your email before logging in", 403));
+  }
 
   sendToken(res, user, `Welcome back, ${user.firstName} ${user.lastName}`, 200);
 });
@@ -82,6 +149,30 @@ export const getMyProfile = catchAsyncError(async (req, res, next) => {
   });
 });
 
+//Change Password
+export const changePassword = catchAsyncError(async (req, res, next) => {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword)
+        return next(new ErrorHandler("Please enter all field", 400));
+
+    const user = await User.findById(req.user._id).select("+password");
+
+    const isMatch = await user.comparePassword(oldPassword);
+
+    if (!isMatch) return next(new ErrorHandler("Incorrect Old Password", 400));
+
+    user.password = newPassword;
+
+    await user.save();
+
+    await sendPasswordChangeEmail(user.email, user.firstName, user.lastName);
+
+    res.status(200).json({
+        success: true,
+        message: "Password Changed Successfully",
+    });
+});
+
 
 // API route to get all registered users
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
@@ -92,18 +183,173 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
   });
 });
 
+//Forgot Password
+export const forgetPassword = catchAsyncError(async (req, res, next) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return next(new ErrorHandler("User not found", 400));
 
-// update Mobile Number
+    const resetToken = await user.getResetToken();
+    await user.save();
+    const url = `${FRONTEND_URL}/ResetPassword/${resetToken}`;
+
+    await sendForgotPasswordEmail(user.email, url, user.firstName, user.lastName);
+    res.status(200).json({
+        success: true,
+        message: `Reset Token has been sent to ${user.email}`,
+    });
+});
+
+//Reset password
+export const resetPassword = catchAsyncError(async (req, res, next) => {
+    const { token } = req.params;
+
+    const resetPasswordToken = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+
+    const user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: {
+            $gt: Date.now(),
+        },
+    });
+
+    if (!user)
+        return next(new ErrorHandler("Token is invalid or has been expired", 401));
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    await sendPasswordResetSuccessEmail(user.email, user.firstName, user.lastName);
+
+    res.status(200).json({
+        success: true,
+        message: "Password Changed Successfully",
+    });
+});
+
+//Update Mobile Number
 export const addMobileNumber = catchAsyncError(async (req, res, next) => {
   // const user = await User.findById(req?.user?._id);
     const { id } = req.params;
     const { mobile } = req.body;
     const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
     if (mobile) user.mobile = mobile;
 
     await user.save();
     res.status(200).json({
         success: true,
         message: "Mobile added Successfully",
+    });
+});
+
+// Add/Update Date of birth
+export const addBirthDate = catchAsyncError(async (req, res, next) => {
+    const { id } = req.params;
+    const { birthDate } = req.body;
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (birthDate) {
+      const parsedDate = new Date(birthDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid birthdate format",
+        });
+      }
+      user.birthDate = parsedDate;
+    }
+
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: "Birthdate added/ updated Successfully",
+    });
+});
+
+// add / update Adress
+export const addAddress = catchAsyncError(async (req, res, next) => {
+    const { id } = req.params;
+
+    const { addressLine1, addressLine2, zipCode } = req.body;
+
+    const country = req.body.country || {};
+    const state = req.body.state || {};
+    const city = req.body.city || {};
+
+    const { id: countryId,  name:countryName,  iso2:countryIso2,  iso3, phonecode,capital, currency, native, emoji } = country
+    const { id: stateId,  name:stateName,  iso2:stateIso2, } = state
+    const { id: cityId,  name:cityName,  latitude,  longitude} = city
+
+    const user = await User.findById(id);
+    if (!user){
+       return next(new ErrorHandler("User not found", 404));
+    }
+    // if (!addressLine1 || !zipCode ){
+    //     return next(new ErrorHandler("Please enter all required field", 400));
+    // }
+
+    user.address = {
+      addressLine1, addressLine2,
+      country:{
+        id: countryId, name:countryName, iso2:countryIso2,  iso3, phonecode,capital, currency, native, emoji
+      },
+      state:{
+        id: stateId, name:stateName, iso2:stateIso2
+      },
+      city:{
+        id: cityId, name:cityName, latitude, longitude
+      },
+      zipCode
+    }
+
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: "Address added Successfully",
+    });
+});
+
+
+//Add / update profile pic
+export const updateprofilepicture = catchAsyncError(async (req, res, next) => {
+    const file = req.file;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user){
+       return next(new ErrorHandler("User not found", 404));
+    }
+
+    const fileUri = getDataUri(file);
+    const mycloud = await cloudinary.v2.uploader.upload(fileUri.content);
+
+    await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+    user.profilePic = mycloud.secure_url;
+
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: "Profile Picture Updated Successfully",
     });
 });
